@@ -47,7 +47,8 @@ HEAD = '''<!doctype html>
 <style>
 html,body{margin:0;height:100%;background:#0A0A0B;overflow:hidden;overscroll-behavior:none}
 /* La pagina è ferma e grande quanto lo schermo: niente pezzi di altre schermate che spuntano, niente pagina che scorre o si rimpicciolisce */
-body{position:fixed;left:0;top:0;width:100%;height:var(--kz-schermo,100%);touch-action:pan-x pan-y}
+/* body "absolute" e non "fixed": su iPhone, aperta dalla Home, gli elementi fixed vengono tagliati prima del fondo dello schermo */
+body{position:absolute;left:0;top:0;width:100%;height:var(--kz-schermo,100%);touch-action:pan-x pan-y}
 /* Lo sfondo dell'app continua dietro la barra di stato (orologio, batteria): niente fascia nera in alto */
 .kz-sf-par .kz-sf{height:calc(var(--kz-h,844px) + var(--kz-su,0px)) !important}
 /* anche Dettaglio e Profilo (entrano da destra) hanno il loro sfondo dietro la barra di stato */
@@ -127,6 +128,10 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
   window.addEventListener('orientationchange', function(){ setTimeout(adatta, 250); });
   window.addEventListener('load', adatta);
   [150, 600, 1500, 3000].forEach(function (t) { setTimeout(adatta, t); });
+  /* la pagina non deve mai scorrere (solo le schermate dentro l'app): se iPhone la sposta, la rimettiamo a posto */
+  window.addEventListener('scroll', function () {
+    if (!scrivendo() && (window.scrollY || window.scrollX)) { try { window.scrollTo(0, 0); } catch (e) {} }
+  }, { passive: true });
   /* chiusa la tastiera, tutto torna al suo posto */
   document.addEventListener('focusout', function () {
     setTimeout(function () { if (!scrivendo()) { try { window.scrollTo(0, 0); } catch (e) {} adatta(); } }, 80);
