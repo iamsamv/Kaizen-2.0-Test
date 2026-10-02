@@ -45,9 +45,16 @@ HEAD = '''<!doctype html>
 <title>Kaizen</title>
 <!-- Kaizen, prototipo in un solo file. Costruito con tools/build.py dalle schermate del canvas. I dati restano nel browser (localStorage). -->
 <style>
-html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavior:none}
+html,body{margin:0;height:100%;background:#0A0A0B;overflow:hidden;overscroll-behavior:none}
+/* Lo sfondo dell'app continua dietro la barra di stato (orologio, batteria): niente fascia nera in alto */
+.kz-sf-par .kz-sf{height:calc(var(--kz-h,844px) + var(--kz-su,0px)) !important}
+/* anche Dettaglio e Profilo (entrano da destra) hanno il loro sfondo dietro la barra di stato */
+.kz-push{overflow:visible !important}
+.kz-push > div[aria-hidden="true"]:first-child{top:calc(-1 * var(--kz-su,0px)) !important;height:calc(var(--kz-h,844px) + var(--kz-su,0px)) !important}
+.kz-push .kz-sf{height:calc(var(--kz-h,844px) + var(--kz-su,0px)) !important}
 /* L'app è larga 390 px e alta quanto lo spazio libero dello schermo (--kz-h); poi viene ingrandita per riempire la larghezza */
 #dc-root{position:absolute;left:0;top:0;width:390px;height:var(--kz-h,844px);transform-origin:0 0;transform:translate(var(--kz-x,0px),var(--kz-y,0px)) scale(var(--kz-scala,1))}
+#kz-alto{position:fixed;left:0;top:0;bottom:0;width:1px;visibility:hidden;pointer-events:none}
 #kz-misura{position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 /* In orizzontale: un avviso al posto dell'app */
 #kz-gira{display:none;position:fixed;inset:0;z-index:999;background:#0A0A0B;color:#F5F5F7;font-family:"DM Sans",system-ui,sans-serif;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;box-sizing:border-box}
@@ -58,6 +65,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavi
 '''
 
 FINE = '''<div id="kz-misura" aria-hidden="true"></div>
+<div id="kz-alto" aria-hidden="true"></div>
 <div id="kz-gira" role="alert">
 <svg viewBox="0 0 24 24" fill="none" stroke="#EDEDED" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>
 <b>Gira il telefono</b>
@@ -71,12 +79,25 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
     function n(v){ v = parseFloat(v); return isFinite(v) ? v : 0; }
     return cs ? { t: n(cs.paddingTop), b: n(cs.paddingBottom) } : { t: 0, b: 0 };
   }
+  var alto = document.getElementById('kz-alto');
+  function altezza(){
+    /* su iPhone, aperta dalla Home, a volte il telefono dice un'altezza più bassa di quella vera:
+       prendiamo la più grande tra quelle che conosciamo */
+    var h = window.innerHeight || 0;
+    try { h = Math.max(h, alto ? alto.getBoundingClientRect().height : 0); } catch (e) {}
+    try { h = Math.max(h, document.documentElement.clientHeight || 0); } catch (e) {}
+    var app = window.navigator.standalone === true;
+    try { app = app || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch (e) {}
+    var w = window.innerWidth || 390;
+    if (app && screen && screen.width && screen.height && w < h + 1) h = Math.max(h, Math.max(screen.width, screen.height));
+    return h || 844;
+  }
   function adatta(){
-    var w = window.innerWidth || 390, h = window.innerHeight || 844;
+    var w = window.innerWidth || 390, h = altezza();
     var sa = bordi();
-    /* sopra: tutta la zona della barra di stato e della tacca; sotto: lascia un po' di spazio alla barra del telefono */
-    var su = sa.t, giu = Math.max(0, sa.b - 14);
-    var libera = Math.max(320, h - su - giu);
+    /* i contenuti partono sotto la barra di stato; lo sfondo invece arriva fino in cima e fino in fondo */
+    var su = sa.t;
+    var libera = Math.max(320, h - su);
     var s = w / 390, alta = libera / s;
     /* schermi bassi o tablet: l'app resta almeno alta 640 e si rimpicciolisce per starci */
     if (alta < 640) { alta = 640; s = libera / 640; }
@@ -87,11 +108,14 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
     r.setProperty('--kz-h', alta.toFixed(1) + 'px');
     r.setProperty('--kz-x', x.toFixed(1) + 'px');
     r.setProperty('--kz-y', y.toFixed(1) + 'px');
+    r.setProperty('--kz-su', (y / s).toFixed(1) + 'px');
   }
   adatta();
   window.addEventListener('resize', adatta);
   window.addEventListener('orientationchange', function(){ setTimeout(adatta, 250); });
   window.addEventListener('load', adatta);
+  [150, 600, 1500, 3000].forEach(function (t) { setTimeout(adatta, t); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(adatta, 100); });
   /* Android (app installata): blocca in verticale dove il browser lo permette */
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){}); } catch (e) {}
 })();
@@ -110,6 +134,22 @@ def adatta_altezza(nome, html):
         html = html.replace(vecchio, vecchio.replace('top: 0;', 'bottom: 0;').replace('height: 844px', 'height: 844PX'))
     html = html.replace('height: 844px', 'height: var(--kz-h, 844px)')
     return html.replace('height: 844PX', 'height: 844px')
+
+
+def sfondo_fino_in_cima(html):
+    """Nell'app principale lo sfondo animato sale anche dietro la barra di stato."""
+    sost = [
+        ('<div style="position: relative; overflow: hidden; width: 390px; height: var(--kz-h, 844px); box-sizing: border-box; background: #000000;',
+         '<div style="position: relative; overflow: visible; width: 390px; height: var(--kz-h, 844px); box-sizing: border-box; background: #000000;'),
+        ('style="position: absolute; left: 0; top: 0; width: 390px; height: var(--kz-h, 844px); overflow: hidden; border-radius: {{layerRadius}};',
+         'style="position: absolute; left: 0; top: 0; width: 390px; height: var(--kz-h, 844px); overflow: visible; border-radius: {{layerRadius}};'),
+        ('style="position: absolute; left: -40px; top: 0; width: 470px; height: var(--kz-h, 844px);',
+         'style="position: absolute; left: -40px; top: calc(-1 * var(--kz-su, 0px)); width: 470px; height: calc(var(--kz-h, 844px) + var(--kz-su, 0px));'),
+    ]
+    for a, b in sost:
+        assert html.count(a) == 1, 'App: ' + a[:60]
+        html = html.replace(a, b)
+    return html
 
 
 def senza_link_font(html):
@@ -187,7 +227,7 @@ def main():
     runtime = runtime.replace('<!--', '<\\x21--')
     dati = leggi('project/kaizen-dati.js')
     assert '<!--' not in dati and '</script' not in dati.lower()
-    app = adatta_altezza('App', senza_link_font(leggi('project/App.dc.html')))
+    app = sfondo_fino_in_cima(adatta_altezza('App', senza_link_font(leggi('project/App.dc.html'))))
     corpo = app[app.find('<x-dc>'):app.rfind('</script>') + len('</script>')]
 
     if len(sys.argv) == 3:
