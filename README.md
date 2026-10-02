@@ -10,6 +10,10 @@ Prototipo dell'app Kaizen in un solo file (`index.html`), costruito dalle scherm
 python3 tools/build.py CARTELLA_CANVAS material-symbols-outlined.woff2
 ```
 
+## Carattere
+Manrope è incluso nel file (`tools/fonts`, pacchetto npm `@fontsource-variable/manrope` 5.3.0, licenza OFL in `tools/fonts/MANROPE-OFL.txt`).
+
 ## Sul telefono
+- Tema chiaro o scuro si sceglie nel Profilo. Su iPhone il colore della barra di stato (orologio, batteria) segue il tema dalla prossima apertura dell'app.
 - L'app si adatta allo schermo e lascia libera la zona della tacca e della barra di stato.
 - In orizzontale compare "Gira il telefono": su iPhone una web app aggiunta alla Home non può bloccare la rotazione; su Android, installata, resta in verticale (`manifest.webmanifest`).

@@ -6,7 +6,7 @@ Uso:
 
 CARTELLA_CANVAS contiene project/*.dc.html, project/kaizen-dati.js e
 artifact-type/dc-runtime.js (scaricati dal canvas di Claude Design).
-DM Sans e Jost vengono ripresi dall'index.html attuale.
+DM Sans e Jost vengono ripresi dall'index.html attuale; Manrope (il carattere dell'app) da tools/fonts.
 
 Icone: se passi il file completo di Material Symbols Outlined (pacchetto npm
 "material-symbols", versione 0.47.5), il file tiene solo le icone usate nelle
@@ -36,16 +36,26 @@ HEAD = '''<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>
+/* Tema chiaro o scuro (scelto nel Profilo): colore della barra di stato e del fondo della pagina.
+   Su iPhone lo stile della barra di stato vale dalla prossima apertura dell'app. */
+(function(){
+  var chiaro = false;
+  try { var d = JSON.parse(localStorage.getItem('kaizen-v3') || '{}'); chiaro = !!(d.profile && d.profile.tema === 'chiaro'); } catch (e) {}
+  document.write('<meta name="theme-color" content="' + (chiaro ? '#DCDCD9' : '#000000') + '">' +
+    '<meta name="apple-mobile-web-app-status-bar-style" content="' + (chiaro ? 'default' : 'black-translucent') + '">');
+  if (chiaro) document.documentElement.className += ' kz-pag-chiara';
+})();
+</script>
 <meta name="apple-mobile-web-app-title" content="Kaizen">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Kaizen</title>
 <!-- Kaizen, prototipo in un solo file. Costruito con tools/build.py dalle schermate del canvas. I dati restano nel browser (localStorage). -->
 <style>
-html,body{margin:0;height:100%;background:#0A0A0B;overflow:hidden;overscroll-behavior:none}
+html,body{margin:0;height:100%;background:#0A0A0B;overflow:hidden;overflow:clip;overscroll-behavior:none}
+html.kz-pag-chiara,html.kz-pag-chiara body{background:#DCDCD9}
 /* La pagina è ferma e grande quanto lo schermo: niente pezzi di altre schermate che spuntano, niente pagina che scorre o si rimpicciolisce */
 /* body "absolute" e non "fixed": su iPhone, aperta dalla Home, gli elementi fixed vengono tagliati prima del fondo dello schermo */
 body{position:absolute;left:0;top:0;width:100%;height:var(--kz-schermo,100%);touch-action:pan-x pan-y}
@@ -124,6 +134,16 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
     r.setProperty('--kz-schermo', h.toFixed(1) + 'px');
   }
   adatta();
+  /* tema: il fondo della pagina e il colore della barra (Android) seguono la scelta del Profilo */
+  function tema(){
+    try {
+      var chiaro = (window.KaizenDati.get().profile || {}).tema === 'chiaro';
+      document.documentElement.classList.toggle('kz-pag-chiara', chiaro);
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', chiaro ? '#DCDCD9' : '#000000');
+    } catch (e) {}
+  }
+  if (window.KaizenDati) { tema(); window.KaizenDati.subscribe(tema); }
   window.addEventListener('resize', adatta);
   window.addEventListener('orientationchange', function(){ setTimeout(adatta, 250); });
   window.addEventListener('load', adatta);
@@ -151,7 +171,7 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
 def adatta_altezza(nome, html):
     """Le schermate sono disegnate a 844 px: qui seguono l'altezza vera dello schermo."""
     if nome == 'Sfondo':
-        # il fumo resta alto 844 e parte dal basso (la brace resta in fondo)
+        # il fumo resta alto 844 e parte dal basso (la sorgente, fuori dallo schermo, resta in fondo)
         vecchio = '<canvas ref="{{canvasRef}}" style="position: absolute; left: 0; top: 0; width: {{w}}; height: 844px">'
         assert vecchio in html, 'Sfondo: canvas non trovato'
         html = html.replace(vecchio, vecchio.replace('top: 0;', 'bottom: 0;').replace('height: 844px', 'height: 844PX'))
@@ -162,8 +182,8 @@ def adatta_altezza(nome, html):
 def sfondo_fino_in_cima(html):
     """Nell'app principale lo sfondo animato sale anche dietro la barra di stato."""
     sost = [
-        ('<div style="position: relative; overflow: hidden; width: 390px; height: var(--kz-h, 844px); box-sizing: border-box; background: #000000;',
-         '<div style="position: relative; overflow: visible; width: 390px; height: var(--kz-h, 844px); box-sizing: border-box; background: #000000;'),
+        ('<div class="kz-tema {{temaCls}}" style="position: relative; overflow: hidden; width: 390px; height: var(--kz-h, 844px); box-sizing: border-box; background: #000000;',
+         '<div class="kz-tema {{temaCls}}" style="position: relative; overflow: visible; width: 390px; height: var(--kz-h, 844px); box-sizing: border-box; background: #000000;'),
         ('style="position: absolute; left: 0; top: 0; width: 390px; height: var(--kz-h, 844px); overflow: hidden; border-radius: {{layerRadius}};',
          'style="position: absolute; left: 0; top: 0; width: 390px; height: var(--kz-h, 844px); overflow: visible; border-radius: {{layerRadius}};'),
         ('style="position: absolute; left: -40px; top: 0; width: 470px; height: var(--kz-h, 844px);',
@@ -173,6 +193,20 @@ def sfondo_fino_in_cima(html):
         assert html.count(a) == 1, 'App: ' + a[:60]
         html = html.replace(a, b)
     return html
+
+
+def manrope():
+    """Manrope (carattere dell'app), incluso nel file: @fontsource-variable/manrope 5.3.0, licenza OFL."""
+    import base64
+    blocchi = []
+    for nome, rng in [
+        ('manrope-latin-ext-wght-normal.woff2', 'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF'),
+        ('manrope-latin-wght-normal.woff2', 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD'),
+    ]:
+        dati = base64.b64encode(open(os.path.join(QUI, 'fonts', nome), 'rb').read()).decode('ascii')
+        blocchi.append("@font-face{font-family:'Manrope';font-style:normal;font-weight:200 800;font-display:swap;"
+                       "src:url(data:font/woff2;base64,%s) format('woff2');unicode-range:%s}" % (dati, rng))
+    return '\n'.join(blocchi)
 
 
 def senza_link_font(html):
@@ -234,7 +268,7 @@ def main():
         sys.exit(1)
     src = sys.argv[1]
     vecchio = open(INDEX, encoding='utf-8').read()
-    caratteri = re.findall(r'@font-face\{[^}]*\}', vecchio[:vecchio.find('</style>')])
+    caratteri = [c for c in re.findall(r'@font-face\{[^}]*\}', vecchio[:vecchio.find('</style>')]) if 'Manrope' not in c]
     assert len(caratteri) == 8, 'caratteri non trovati in index.html'
 
     def leggi(p):
@@ -260,7 +294,7 @@ def main():
             if 'Material Symbols' in c:
                 caratteri[i] = re.sub(r'base64,[A-Za-z0-9+/=]+', 'base64,' + nuovo, c)
 
-    out = [HEAD, '\n'.join(caratteri), '\n</style>\n',
+    out = [HEAD, '\n'.join(caratteri + [manrope()]), '\n</style>\n',
            '<script>\n/* Le schermate dell\'app, incluse nel file (niente richieste in rete) */\n'
            'window.__resources = {};\nwindow.__resourceBlobs = (function(){\n  var src = {\n',
            ',\n'.join(risorse),
