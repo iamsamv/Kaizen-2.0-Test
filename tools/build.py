@@ -35,7 +35,7 @@ HEAD = '''<!doctype html>
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -46,6 +46,8 @@ HEAD = '''<!doctype html>
 <!-- Kaizen, prototipo in un solo file. Costruito con tools/build.py dalle schermate del canvas. I dati restano nel browser (localStorage). -->
 <style>
 html,body{margin:0;height:100%;background:#0A0A0B;overflow:hidden;overscroll-behavior:none}
+/* La pagina è ferma e grande quanto lo schermo: niente pezzi di altre schermate che spuntano, niente pagina che scorre o si rimpicciolisce */
+body{position:fixed;left:0;top:0;width:100%;height:var(--kz-schermo,100%);touch-action:pan-x pan-y}
 /* Lo sfondo dell'app continua dietro la barra di stato (orologio, batteria): niente fascia nera in alto */
 .kz-sf-par .kz-sf{height:calc(var(--kz-h,844px) + var(--kz-su,0px)) !important}
 /* anche Dettaglio e Profilo (entrano da destra) hanno il loro sfondo dietro la barra di stato */
@@ -92,8 +94,17 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
     if (app && screen && screen.width && screen.height && w < h + 1) h = Math.max(h, Math.max(screen.width, screen.height));
     return h || 844;
   }
+  var ultima = { w: 0, h: 0 };
+  function scrivendo(){
+    var a = document.activeElement;
+    return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+  }
   function adatta(){
-    var w = window.innerWidth || 390, h = altezza();
+    /* con la tastiera aperta lo schermo "si accorcia": l'app non cambia misura, così non salta */
+    var w0 = window.innerWidth || 390, h0 = altezza();
+    if (scrivendo() && w0 === ultima.w && h0 < ultima.h) return;
+    ultima = { w: w0, h: h0 };
+    var w = w0, h = h0;
     var sa = bordi();
     /* i contenuti partono sotto la barra di stato; lo sfondo invece arriva fino in cima e fino in fondo */
     var su = sa.t;
@@ -109,12 +120,19 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
     r.setProperty('--kz-x', x.toFixed(1) + 'px');
     r.setProperty('--kz-y', y.toFixed(1) + 'px');
     r.setProperty('--kz-su', (y / s).toFixed(1) + 'px');
+    r.setProperty('--kz-schermo', h.toFixed(1) + 'px');
   }
   adatta();
   window.addEventListener('resize', adatta);
   window.addEventListener('orientationchange', function(){ setTimeout(adatta, 250); });
   window.addEventListener('load', adatta);
   [150, 600, 1500, 3000].forEach(function (t) { setTimeout(adatta, t); });
+  /* chiusa la tastiera, tutto torna al suo posto */
+  document.addEventListener('focusout', function () {
+    setTimeout(function () { if (!scrivendo()) { try { window.scrollTo(0, 0); } catch (e) {} adatta(); } }, 80);
+  });
+  /* niente zoom con due dita su iPhone (l'app è già a misura di schermo) */
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(adatta, 100); });
   /* Android (app installata): blocca in verticale dove il browser lo permette */
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){}); } catch (e) {}
