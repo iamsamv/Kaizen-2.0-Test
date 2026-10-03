@@ -12,7 +12,7 @@
   var chiaro = false;
   try { var d = JSON.parse(localStorage.getItem('kaizen-v3') || '{}'); chiaro = !!(d.profile && d.profile.tema === 'chiaro'); } catch (e) {}
   document.write('<meta name="theme-color" content="' + (chiaro ? '#DCDCD9' : '#000000') + '">' +
-    '<meta name="apple-mobile-web-app-status-bar-style" content="' + (chiaro ? 'default' : 'black-translucent') + '">');
+    '<meta name="apple-mobile-web-app-status-bar-style" content="' + (chiaro ? 'default' : 'black') + '">');
   if (chiaro) document.documentElement.className += ' kz-pag-chiara';
 })();
 </script>
@@ -3702,24 +3702,12 @@ class Component extends DCLogic {
   }
   var alto = document.getElementById('kz-alto');
   function altezza(){
-    /* su iPhone, aperta dalla Home, a volte il telefono dice un'altezza più bassa di quella vera:
-       prendiamo la più grande tra quelle che conosciamo */
+    /* l'altezza vera della finestra. Con la barra di stato opaca iPhone la comunica giusta.
+       Non si usa l'altezza dello schermo: comprende la barra di stato, che non fa parte della finestra
+       (con la barra "trasparente" iOS 26 accorcia la finestra in fondo: bug WebKit 301108) */
     var h = window.innerHeight || 0;
     try { h = Math.max(h, alto ? alto.getBoundingClientRect().height : 0); } catch (e) {}
     try { h = Math.max(h, document.documentElement.clientHeight || 0); } catch (e) {}
-    var app = window.navigator.standalone === true;
-    try { app = app || (window.matchMedia && ['standalone', 'fullscreen', 'minimal-ui'].some(function (m) { return window.matchMedia('(display-mode: ' + m + ')').matches; })); } catch (e) {}
-    var w = window.innerWidth || 390;
-    var sh = (screen && screen.width && screen.height) ? Math.max(screen.width, screen.height) : 0;
-    if (sh && w < h + 1) {
-      if (app) h = Math.max(h, sh);
-      else {
-        /* su alcune versioni di iOS l'altezza della finestra esclude la barra di stato (o la zona in basso)
-           anche se l'app occupa tutto lo schermo: se manca proprio quel pezzo, usiamo lo schermo intero */
-        var sa = bordi();
-        if (sa.t > 0 && (Math.abs(h + sa.t - sh) <= 2 || Math.abs(h + sa.t + sa.b - sh) <= 2)) h = sh;
-      }
-    }
     return h || 844;
   }
   var ultima = { w: 0, h: 0 };
