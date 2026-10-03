@@ -38,14 +38,16 @@ HEAD = '''<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<!-- Barra di stato opaca, scritta direttamente nella pagina (non da uno script): iPhone la legge solo quando
+     l'app viene aggiunta alla Home. Con "black-translucent" iOS 26 accorcia la finestra e in fondo resta una
+     fascia nera che la pagina non può riempire (bug WebKit 301108). -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script>
-/* Tema chiaro o scuro (scelto nel Profilo): colore della barra di stato e del fondo della pagina.
-   Su iPhone lo stile della barra di stato vale dalla prossima apertura dell'app. */
+/* Tema chiaro o scuro (scelto nel Profilo): colore del fondo della pagina e della barra del browser. */
 (function(){
   var chiaro = false;
   try { var d = JSON.parse(localStorage.getItem('kaizen-v3') || '{}'); chiaro = !!(d.profile && d.profile.tema === 'chiaro'); } catch (e) {}
-  document.write('<meta name="theme-color" content="' + (chiaro ? '#DCDCD9' : '#000000') + '">' +
-    '<meta name="apple-mobile-web-app-status-bar-style" content="' + (chiaro ? 'default' : 'black') + '">');
+  document.write('<meta name="theme-color" content="' + (chiaro ? '#DCDCD9' : '#000000') + '">');
   if (chiaro) document.documentElement.className += ' kz-pag-chiara';
 })();
 </script>
@@ -158,6 +160,108 @@ FINE = '''<div id="kz-misura" aria-hidden="true"></div>
   document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(adatta, 100); });
   /* Android (app installata): blocca in verticale dove il browser lo permette */
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){}); } catch (e) {}
+
+  /* Controllo dello schermo.
+     Se l'app è stata aggiunta alla Home quando la barra di stato era "trasparente", iOS 26 tiene quella scelta
+     e accorcia la finestra in fondo di quanto è alta la barra di stato: la fascia nera è fuori dalla pagina e
+     nessun codice può riempirla. Ce ne accorgiamo perché finestra + barra di stato = schermo intero; in quel
+     caso un avviso spiega di aggiungere di nuovo l'app alla Home (una volta al giorno).
+     Due dita tenute ferme sullo schermo per 1,5 secondi aprono il pannello con tutte le misure. */
+  var VERSIONE_SCHERMO = 'schermo 4 · 3 ottobre';
+  function misuraUnita(u){
+    try {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:absolute;left:-9px;top:0;width:1px;visibility:hidden;pointer-events:none;height:' + u;
+      document.body.appendChild(d);
+      var v = d.getBoundingClientRect().height;
+      document.body.removeChild(d);
+      return Math.round(v * 10) / 10;
+    } catch (e) { return 0; }
+  }
+  function info(){
+    var sa = bordi();
+    var sh = (screen && screen.width && screen.height) ? Math.max(screen.width, screen.height) : 0;
+    var sw = (screen && screen.width && screen.height) ? Math.min(screen.width, screen.height) : 0;
+    var modo = '';
+    try { ['fullscreen', 'standalone', 'minimal-ui', 'browser'].forEach(function (m) { if (!modo && window.matchMedia('(display-mode: ' + m + ')').matches) modo = m; }); } catch (e) {}
+    var st = window.navigator.standalone;
+    var app = st === true || modo === 'standalone' || modo === 'fullscreen';
+    var ih = window.innerHeight || 0;
+    var verticale = (window.innerWidth || 0) < ih;
+    /* finestra accorciata: manca in fondo proprio l'altezza della barra di stato */
+    var corta = verticale && sa.t >= 20 && sh > 0 && ih < sh - 10 && Math.abs(ih + sa.t - sh) <= 3 && st !== false;
+    var meta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    return { sa: sa, sh: sh, sw: sw, modo: modo || '?', st: st, app: app, ih: ih, corta: corta,
+      meta: meta ? meta.getAttribute('content') : '(nessuna)' };
+  }
+  function avviso(){
+    var i = info();
+    if (!i.corta) return;
+    var oggi = new Date().toDateString();
+    try { if (localStorage.getItem('kz-avviso-schermo') === oggi) return; } catch (e) {}
+    if (document.getElementById('kz-avviso')) return;
+    var a = document.createElement('div');
+    a.id = 'kz-avviso';
+    a.setAttribute('role', 'status');
+    a.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 10px);z-index:1000;' +
+      'background:rgba(28,28,30,.92);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.16);' +
+      'border-radius:18px;padding:14px 14px 12px;color:#F5F5F7;font:500 15px/1.4 Manrope,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.45)';
+    a.innerHTML = '<div style="font-weight:800;margin-bottom:4px">Vedi una fascia nera in fondo?</div>' +
+      '<div style="color:#C7C7CC">iPhone ha tenuto una vecchia impostazione. Togli Kaizen dalla Home e aggiungila di nuovo da Safari: poi occupa tutto lo schermo.</div>' +
+      '<button type="button" style="margin-top:10px;width:100%;height:40px;border:0;border-radius:12px;background:linear-gradient(#FAFAFA,#C4C4C9);color:#0A0A0B;font:700 15px Manrope,system-ui,sans-serif">Ho capito</button>';
+    a.querySelector('button').addEventListener('click', function () {
+      try { localStorage.setItem('kz-avviso-schermo', oggi); } catch (e) {}
+      if (a.parentNode) a.parentNode.removeChild(a);
+    });
+    document.body.appendChild(a);
+  }
+  setTimeout(avviso, 4500);
+  function pannello(){
+    if (document.getElementById('kz-diag')) return;
+    var i = info();
+    var vv = window.visualViewport ? Math.round(window.visualViewport.height * 10) / 10 : '-';
+    function riga(k, v){ return '<tr><td style="color:#9A9AA0;padding:3px 10px 3px 0;vertical-align:top">' + k + '</td><td style="padding:3px 0">' + v + '</td></tr>'; }
+    var esito = i.corta
+      ? '<b style="color:#F0C77A">Finestra accorciata da iOS.</b> La fascia nera è fuori dalla pagina: togli Kaizen dalla Home e aggiungila di nuovo da Safari.'
+      : "<b style='color:#6FCF97'>Misure coerenti.</b> L'app usa tutta la finestra che iPhone le dà.";
+    var p = document.createElement('div');
+    p.id = 'kz-diag';
+    p.style.cssText = 'position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 10px);z-index:1001;max-height:80%;overflow:auto;' +
+      'background:rgba(20,20,22,.96);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:14px;color:#F5F5F7;' +
+      'font:13px/1.35 ui-monospace,Menlo,monospace;-webkit-user-select:text;user-select:text';
+    p.innerHTML = '<div style="font:800 15px Manrope,system-ui,sans-serif;margin-bottom:8px">Misure dello schermo</div>' +
+      '<table style="border-collapse:collapse;width:100%">' +
+      riga('Versione', VERSIONE_SCHERMO) +
+      riga('Aperta dalla Home', (i.app ? 'sì' : 'no') + ' · standalone=' + String(i.st) + ' · display-mode=' + i.modo) +
+      riga('Barra di stato', i.meta) +
+      riga('Schermo', i.sw + ' × ' + i.sh) +
+      riga('Finestra', (window.innerWidth || 0) + ' × ' + i.ih) +
+      riga('clientHeight', document.documentElement.clientHeight || 0) +
+      riga('visualViewport', vv) +
+      riga('100lvh / svh / dvh', misuraUnita('100lvh') + ' / ' + misuraUnita('100svh') + ' / ' + misuraUnita('100dvh')) +
+      riga('Zone sicure', 'sopra ' + i.sa.t + ' · sotto ' + i.sa.b) +
+      riga('Altezza usata', ultima.h + ' · app alta ' + (document.documentElement.style.getPropertyValue('--kz-h') || '-')) +
+      riga('Rapporto pixel', window.devicePixelRatio || 1) +
+      '</table><div style="font:500 14px/1.4 Manrope,system-ui,sans-serif;margin-top:10px">' + esito + '</div>' +
+      '<button type="button" style="margin-top:12px;width:100%;height:40px;border:0;border-radius:12px;background:#2C2C2E;color:#F5F5F7;font:700 15px Manrope,system-ui,sans-serif">Chiudi</button>';
+    p.querySelector('button').addEventListener('click', function () { if (p.parentNode) p.parentNode.removeChild(p); });
+    document.body.appendChild(p);
+  }
+  var dueDita = null, dueDitaPos = null;
+  function annullaDueDita(){ if (dueDita) { clearTimeout(dueDita); dueDita = null; } }
+  document.addEventListener('touchstart', function (e) {
+    annullaDueDita();
+    if (e.touches && e.touches.length === 2) {
+      dueDitaPos = [e.touches[0].clientX, e.touches[0].clientY];
+      dueDita = setTimeout(function () { dueDita = null; pannello(); }, 1500);
+    }
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (!dueDita || !e.touches || !e.touches[0] || !dueDitaPos) return;
+    if (Math.abs(e.touches[0].clientX - dueDitaPos[0]) > 24 || Math.abs(e.touches[0].clientY - dueDitaPos[1]) > 24) annullaDueDita();
+  }, { passive: true });
+  document.addEventListener('touchend', annullaDueDita, { passive: true });
+  document.addEventListener('touchcancel', annullaDueDita, { passive: true });
 })();
 </script>
 </body>

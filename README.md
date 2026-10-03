@@ -16,5 +16,7 @@ Manrope è incluso nel file (`tools/fonts`, pacchetto npm `@fontsource-variable/
 ## Sul telefono
 - Tema chiaro o scuro si sceglie nel Profilo. Su iPhone il colore della barra di stato (orologio, batteria) segue il tema dalla prossima apertura dell'app.
 - L'app si adatta allo schermo e lascia libera la zona della tacca e della barra di stato.
-- La barra di stato è opaca (nera con il tema scuro). Con la barra "trasparente" iOS 26 accorcia la finestra di un'app aggiunta alla Home e lascia una fascia nera in fondo (bug WebKit 301108). **Dopo questo cambio bisogna togliere l'app dalla Home e aggiungerla di nuovo**: iOS legge queste impostazioni solo quando la aggiungi.
+- La barra di stato è opaca (nera), scritta direttamente nella pagina. Con la barra "trasparente" iOS 26 accorcia la finestra di un'app aggiunta alla Home e lascia in fondo una fascia nera **fuori dalla pagina**, che nessun codice può riempire (bug WebKit 301108). iOS legge questa impostazione **solo quando aggiungi l'app alla Home**: un'app aggiunta prima del 3 ottobre va tolta e aggiunta di nuovo da Safari.
+- Se l'app si accorge di essere in una finestra accorciata (finestra + barra di stato = schermo intero) mostra un avviso, al massimo una volta al giorno.
+- **Misure dello schermo:** tieni due dita ferme sullo schermo per 1,5 secondi. Si apre un pannello con tutte le misure (schermo, finestra, zone sicure, modalità) e l'esito del controllo.
 - In orizzontale compare "Gira il telefono": su iPhone una web app aggiunta alla Home non può bloccare la rotazione; su Android, installata, resta in verticale (`manifest.webmanifest`).
