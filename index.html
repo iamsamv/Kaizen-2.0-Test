@@ -3708,9 +3708,18 @@ class Component extends DCLogic {
     try { h = Math.max(h, alto ? alto.getBoundingClientRect().height : 0); } catch (e) {}
     try { h = Math.max(h, document.documentElement.clientHeight || 0); } catch (e) {}
     var app = window.navigator.standalone === true;
-    try { app = app || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch (e) {}
+    try { app = app || (window.matchMedia && ['standalone', 'fullscreen', 'minimal-ui'].some(function (m) { return window.matchMedia('(display-mode: ' + m + ')').matches; })); } catch (e) {}
     var w = window.innerWidth || 390;
-    if (app && screen && screen.width && screen.height && w < h + 1) h = Math.max(h, Math.max(screen.width, screen.height));
+    var sh = (screen && screen.width && screen.height) ? Math.max(screen.width, screen.height) : 0;
+    if (sh && w < h + 1) {
+      if (app) h = Math.max(h, sh);
+      else {
+        /* su alcune versioni di iOS l'altezza della finestra esclude la barra di stato (o la zona in basso)
+           anche se l'app occupa tutto lo schermo: se manca proprio quel pezzo, usiamo lo schermo intero */
+        var sa = bordi();
+        if (sa.t > 0 && (Math.abs(h + sa.t - sh) <= 2 || Math.abs(h + sa.t + sa.b - sh) <= 2)) h = sh;
+      }
+    }
     return h || 844;
   }
   var ultima = { w: 0, h: 0 };
