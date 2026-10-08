@@ -29,7 +29,7 @@ QUI = os.path.dirname(os.path.abspath(__file__))
 INDEX = os.path.join(QUI, '..', 'index.html')
 
 SCHERMATE = ['Sfondo', 'Apertura', 'Benvenuto', 'Oggi', 'AbitudiniV2', 'Progressi',
-             'Scopri', 'Profilo', 'Dettaglio', 'NuovaAbitudine']
+             'Scopri', 'Profilo', 'Dettaglio', 'NuovaAbitudine', 'Obiettivi']
 
 HEAD = '''<!doctype html>
 <html lang="it">
